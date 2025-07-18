@@ -252,6 +252,12 @@ install_amp_unattended() {
     export ANSWER_HTTPS="$ENABLE_HTTPS"
     export ANSWER_EMAIL="$AMP_EMAIL"
     
+    # Force local IP usage instead of external IP detection
+    if [[ "$ENABLE_HTTPS" == "n" ]]; then
+        # Skip HTTPS setup entirely to avoid external hostname detection
+        export SKIP_HTTPS=y
+    fi
+    
     if [[ "$ENABLE_HTTPS" == "y" ]] && [[ -n "$DOMAIN_NAME" ]]; then
         export EXT_HOSTNAME="$DOMAIN_NAME"
     fi
@@ -259,6 +265,14 @@ install_amp_unattended() {
     # Download and run the AMP installer
     log_info "Downloading and executing AMP installer..."
     bash <(wget -qO- getamp.sh)
+    
+    # After installation, update AMP configuration to use local IP
+    if [[ -f /home/amp/.ampdata/instances/ADS01/AMPConfig.conf ]]; then
+        log_info "Updating AMP configuration for local network access..."
+        # Update the webserver endpoint to use local IP
+        sed -i "s|Webserver.UsingReverseProxy=.*|Webserver.UsingReverseProxy=False|" /home/amp/.ampdata/instances/ADS01/AMPConfig.conf
+        sed -i "s|Webserver.BaseURL=.*|Webserver.BaseURL=http://$CURRENT_IP:8080/|" /home/amp/.ampdata/instances/ADS01/AMPConfig.conf
+    fi
     
     log_success "AMP installation completed"
 }
