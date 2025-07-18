@@ -46,18 +46,6 @@ fi
 read -p "Install Java for Minecraft? [Y/n]: " JAVA
 JAVA=${JAVA:-y}
 
-read -p "Configure static IP? [Y/n]: " STATIC_IP_CHOICE
-STATIC_IP_CHOICE=${STATIC_IP_CHOICE:-y}
-
-if [[ "$STATIC_IP_CHOICE" =~ ^[Yy]$ ]]; then
-    INTERFACE=$(ip route | grep default | awk '{print $5}' | head -n1)
-    CURRENT_IP=$(ip addr show $INTERFACE | grep "inet " | awk '{print $2}' | cut -d/ -f1)
-    read -p "Enter static IP [$CURRENT_IP]: " STATIC_IP
-    STATIC_IP=${STATIC_IP:-$CURRENT_IP}
-    read -p "Enter gateway IP [192.168.1.1]: " GATEWAY
-    GATEWAY=${GATEWAY:-192.168.1.1}
-fi
-
 echo
 echo "=================================="
 echo "Configuration Summary:"
@@ -66,32 +54,12 @@ echo "  Email: ${EMAIL:-Not set}"
 echo "  HTTPS: $HTTPS"
 [[ "$HTTPS" =~ ^[Yy]$ ]] && echo "  Domain: $DOMAIN"
 echo "  Install Java: $JAVA"
-[[ "$STATIC_IP_CHOICE" =~ ^[Yy]$ ]] && echo "  Static IP: $STATIC_IP"
 echo "=================================="
 echo
 
 read -p "Continue with installation? [Y/n]: " CONFIRM
 CONFIRM=${CONFIRM:-y}
 [[ ! "$CONFIRM" =~ ^[Yy]$ ]] && exit 0
-
-# Configure static IP if requested
-if [[ "$STATIC_IP_CHOICE" =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Configuring static IP...${NC}"
-    cat > /etc/netplan/01-netcfg.yaml <<EOF
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    $INTERFACE:
-      dhcp4: no
-      addresses:
-        - $STATIC_IP/24
-      gateway4: $GATEWAY
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-EOF
-    netplan apply
-fi
 
 # Configure laptop lid behavior
 echo -e "${YELLOW}Configuring power management...${NC}"
@@ -145,11 +113,7 @@ echo -e "${GREEN}=================================="
 echo "Installation Complete!"
 echo "=================================="
 echo
-if [[ "$STATIC_IP_CHOICE" =~ ^[Yy]$ ]]; then
-    ACCESS_IP="$STATIC_IP"
-else
-    ACCESS_IP=$(hostname -I | awk '{print $1}')
-fi
+ACCESS_IP=$(hostname -I | awk '{print $1}')
 
 if [[ "$HTTPS" =~ ^[Yy]$ ]]; then
     echo "Access URL: https://$DOMAIN:8080"
@@ -160,4 +124,7 @@ echo "Username: $AMP_USER"
 echo "Password: [as entered]"
 echo
 echo "SSH: ssh $(logname)@$ACCESS_IP"
+echo
+echo "Note: Server is using dynamic IP ($ACCESS_IP)"
+echo "IP may change on reboot - check router DHCP list"
 echo -e "==================================${NC}"
