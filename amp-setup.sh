@@ -19,8 +19,9 @@ AMP_SYSTEM_PASSWORD="SystemPassword123!"  # Change this!
 AMP_EMAIL="your@email.com"  # Optional, for Let's Encrypt
 
 # Network Configuration
-STATIC_IP="192.168.1.100"  # Set your desired static IP
-GATEWAY_IP="192.168.1.1"   # Your router's IP
+USE_STATIC_IP="n"  # Set to 'y' only if you need a static IP
+STATIC_IP="192.168.1.100"  # Only used if USE_STATIC_IP is 'y'
+GATEWAY_IP="192.168.1.1"   # Only used if USE_STATIC_IP is 'y'
 INTERFACE_NAME=""  # Leave empty to auto-detect
 
 # Server Configuration
@@ -95,7 +96,18 @@ detect_network_interface() {
     fi
 }
 
+get_current_ip() {
+    # Get the current IP address
+    CURRENT_IP=$(hostname -I | awk '{print $1}')
+    log_info "Current IP address: $CURRENT_IP"
+}
+
 configure_static_ip() {
+    if [[ "$USE_STATIC_IP" != "y" ]]; then
+        log_info "Skipping static IP configuration (using DHCP)"
+        return
+    fi
+    
     log_info "Configuring static IP address..."
     
     # Backup existing netplan config
@@ -351,7 +363,8 @@ main() {
     
     # Network configuration
     detect_network_interface
-    configure_static_ip
+    get_current_ip
+    configure_static_ip  # Will skip if USE_STATIC_IP is not 'y'
     
     # System configuration
     configure_hostname
@@ -380,7 +393,7 @@ main() {
     if [[ "$ENABLE_HTTPS" == "y" ]]; then
         echo "  https://$DOMAIN_NAME:8080"
     else
-        echo "  http://$STATIC_IP:8080"
+        echo "  http://$CURRENT_IP:8080"
     fi
     echo
     echo "Login credentials:"
@@ -388,12 +401,15 @@ main() {
     echo "  Password: $AMP_PASSWORD"
     echo
     echo "SSH access:"
-    echo "  ssh $(whoami)@$STATIC_IP"
+    echo "  ssh $(whoami)@$CURRENT_IP"
     echo
     echo "Important paths:"
     echo "  AMP Data: /home/amp/.ampdata"
     echo "  Backups: /home/amp/backups"
     echo "  Logs: /var/log/amp_*.log"
+    echo
+    log_warning "Note: This server is using a dynamic IP address ($CURRENT_IP)"
+    log_warning "The IP may change after reboot. To find the new IP, check your router's DHCP list."
     echo
     log_warning "Please save these credentials in a secure location!"
     echo "====================================="
